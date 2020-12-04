@@ -11,31 +11,37 @@ $jsonVersions = Invoke-WebRequest -Uri https://launchermeta.mojang.com/mc/game/v
 # Get the latest "release" version from JSON object
 $minecraftLatestVersion = $jsonVersions.latest.release
 
-# Get URL of matching version
-$jsonUrlLatestVersion = ($jsonVersions.versions | Where-Object id -eq $minecraftLatestVersion).url
-
-# Get Latest Version Manifest and convert to PowerShell JSON Object
-$jsonLatestVersion = Invoke-WebRequest -Uri $jsonUrlLatestVersion | ConvertFrom-Json
-
-# Get the Server Jar URL
-$jarUrl = $jsonLatestVersion.downloads.server.url
-
 # Determine what the jar file name will be
 $minecraftJar = "minecraft_server." + $minecraftLatestVersion + ".jar"
 
-# Set the location and file name to save the downloaded file to
-$jarPath = "$serverRootDir\$minecraftJar"
+# Check if local Jar already is the latest version.
+$TestLocalJarLatest = Test-Path "$serverRootDir\$minecraftJar"
 
-# Create a web client
-$webclient = New-Object System.Net.WebClient
+If (!($TestLocalJarLatest)) {
 
-# Using the webclient, download the file in the $url to $jarPath
-$webclient.DownloadFile($jarUrl, $jarPath)
+  # Get URL of matching version
+  $jsonUrlLatestVersion = ($jsonVersions.versions | Where-Object id -eq $minecraftLatestVersion).url
+
+  # Get Latest Version Manifest and convert to PowerShell JSON Object
+  $jsonLatestVersion = Invoke-WebRequest -Uri $jsonUrlLatestVersion | ConvertFrom-Json
+
+  # Get the Server Jar URL
+  $jarUrl = $jsonLatestVersion.downloads.server.url
 
 
-# If configuration value of $updateStartScript is True, update the Server Start script with new jar file
-if ($updateStartScript)
-{
+
+  # Set the location and file name to save the downloaded file to
+  $jarPath = "$serverRootDir\$minecraftJar"
+
+  # Create a web client
+  $webclient = New-Object System.Net.WebClient
+
+  # Using the webclient, download the file in the $url to $jarPath
+  $webclient.DownloadFile($jarUrl, $jarPath)
+
+
+  # If configuration value of $updateStartScript is True, update the Server Start script with new jar file
+  if ($updateStartScript) {
     # Get the contents of the Server Start script
     $startServerContents = [string]::join("`n", (Get-Content $serverRootDir\$startServerFile))
 
@@ -50,8 +56,11 @@ if ($updateStartScript)
 
     # Write the new start script to the Server Start script file
     $startServerContents | Set-Content $serverRootDir\$startServerFile
-}
-else
-{
+  }
+  else {
     # Do not update the Server Start script
+  }
+}
+Else {
+  Write-Host "Latest version already downloaded"
 }
